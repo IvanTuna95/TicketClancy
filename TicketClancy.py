@@ -17,6 +17,28 @@ class FilaVirtualEnlazada:
         self.cola = None   # El último de la fila
         self.tamaño = 0    # Cuántos hay formados
 
+        # Método para que alguien abandone la fila si se aburre
+        def abandonar_fila(self, nombre):
+            actual = self.cabeza
+            anterior = None
+
+            while actual:
+                if actual.nombre == nombre:
+                    if anterior is None:  # Si era el primero de la fila
+                        self.cabeza = actual.siguiente
+                        if self.cabeza is None:
+                            self.cola = None
+                    else:  # Si estaba en medio o al final
+                        anterior.siguiente = actual.siguiente
+                        if actual.siguiente is None:
+                            self.cola = anterior  # Si era el último, actualizamos la cola
+                    self.tamaño -= 1
+                    return True
+
+                anterior = actual
+                actual = actual.siguiente
+            return False
+
     # Método para formar a alguien (Insertar al final)
     def formar_usuario(self, nombre):
         nuevo_nodo = NodoUsuario(nombre)
@@ -102,6 +124,20 @@ def actualizar_flujo():
         afortunado = fila_espera.dejar_pasar()
         zona_pago.append(afortunado)
 
+
+# RUTA NUEVA: Salir de la fila o cancelar compra
+@app.route('/salir/<nombre>')
+def salir(nombre):
+    # Si estaba a punto de comprar y se arrepintió
+    if nombre in zona_pago:
+        zona_pago.remove(nombre)
+    # Si estaba formado en la lista enlazada
+    else:
+        fila_espera.abandonar_fila(nombre)
+
+    # IMPORTANTE: Como alguien se fue, revisamos si podemos dejar pasar a otro
+    actualizar_flujo()
+    return redirect(url_for('inicio'))
 # RUTA 1: Pantalla de Bienvenida (Registro)
 @app.route('/', methods=['GET', 'POST'])
 def inicio():
@@ -141,6 +177,10 @@ def espera(nombre):
         <h2>Hola {nombre}, estás en la posición: <strong style="color: red; font-size: 40px;">#{posicion}</strong></h2>
         <p>El sistema se actualiza automáticamente. No cierres la ventana.</p>
         <p><em>Personas comprando actualmente: {len(zona_pago)}/3</em></p>
+        <br><br>
+<a href="/salir/{nombre}">
+    <button style="padding: 10px; background-color: #dc3545; color: white; border: none; cursor: pointer;">Abandonar / Cancelar</button>
+</a>
     </div>
     """
     return render_template_string(html)
@@ -176,6 +216,10 @@ def comprar(nombre):
         <form method="POST" style="max-width: 400px; margin: 0 auto;">
             {botones_butacas}
         </form>
+        <br><br>
+<a href="/salir/{nombre}">
+    <button style="padding: 10px; background-color: #dc3545; color: white; border: none; cursor: pointer;">Abandonar / Cancelar</button>
+</a>
     </div>
     """
     return render_template_string(html)
